@@ -280,6 +280,9 @@ public class OTSessionManager extends ReactContextBaseJavaModule
                 Callback mCallback = callback;
                 ConcurrentHashMap<String, Publisher> mPublishers = sharedState.getPublishers();
                 Publisher mPublisher = mPublishers.get(publisherId);
+                if (mPublisher == null) {
+                    return;
+                }
                 ConcurrentHashMap<String, FrameLayout> mPublisherViewContainers = sharedState.getPublisherViewContainers();
                 FrameLayout mPublisherViewContainer = mPublisherViewContainers.get(publisherId);
                 Session mSession = sharedState.getSession();
@@ -302,6 +305,9 @@ public class OTSessionManager extends ReactContextBaseJavaModule
     public void getSessionInfo(Callback callback) {
 
         Session mSession = sharedState.getSession();
+        if (mSession == null) {
+            return;
+        }
         WritableMap sessionInfo = Arguments.createMap();
         int connectionStatus = getConnectionStatus();
         sessionInfo.putString("sessionId", mSession.getSessionId());
@@ -424,17 +430,25 @@ public class OTSessionManager extends ReactContextBaseJavaModule
 
     @Override
     public void onDisconnected(Session session) {
+        try {
+            setConnectionStatus(0);
+            if (disconnectCallback != null) {
+                disconnectCallback.invoke();
+            }
 
-        setConnectionStatus(0);
-        if (disconnectCallback != null) {
-            disconnectCallback.invoke();
+            if (contains(jsEvents, sessionPreface + "onDisconnected")) {
+                sendEvent(this.getReactApplicationContext(), sessionPreface + "onDisconnected", null);
+
+            }
+            Log.i(TAG, "onDisconnected: Disconnected from session: " + session.getSessionId());
+        } catch (Exception e) {
+            // Handle :  Illegal callback invocation from native module. This callback type only permits a single invocation from native code.
+            Log.e(TAG, "Exception : " + e.getLocalizedMessage());
+            if (contains(jsEvents, sessionPreface + "onDisconnected")) {
+                sendEvent(this.getReactApplicationContext(), sessionPreface + "onDisconnected", null);
+            }
         }
 
-        if (contains(jsEvents, sessionPreface + "onDisconnected")) {
-            sendEvent(this.getReactApplicationContext(), sessionPreface + "onDisconnected", null);
-
-        }
-        Log.i(TAG, "onDisconnected: Disconnected from session: " + session.getSessionId());
 
     }
 
